@@ -11,20 +11,32 @@ class Scanner(object):
             self.creds = config.custom_creds
         else:
             self.creds = data['auth']['credentials']
-
-        self.contributor = data.get('contributor', None)
-        self.name = data.get('name', None)
-        self.type = data['auth'].get('type', None)
+        
+        self.contributor = None
+        if 'contributor' in data:
+            self.contributor = data['contributor']
+        
+        self.name = None
+        if 'name' in data:
+            self.name = data['name']
+        
+        self.type = None
+        if 'type' in data['auth']:
+            self.type = data['auth']['type']
 
         if config.port:
             self.port = config.port
         else:
-            self.port = data.get('default_port', None)
+            self.port = None
+            if 'default_port' in data:
+                self.port = data['default_port']
 
         if config.ssl:
             self.ssl = config.ssl
         else:
-            self.ssl = data.get('ssl', None)
+            self.ssl = None
+            if 'ssl' in data:
+                self.ssl = data['ssl']
 
         self.targets = targets
         self.config = config

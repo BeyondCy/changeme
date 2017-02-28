@@ -56,13 +56,12 @@ class Credentials(object):
                                 parsed['protocol'] = protocol
                                 self.creds.append(parsed)
 
-    def load_creds(self, protocol, name, category):
-        
+    def load_creds(self, root, protocol, name, category):
         if protocol:
-            self._loop_through_dir(os.path.join('creds', protocol), protocol, name, category)
+            self._loop_through_dir(os.path.join(root, 'creds', protocol), protocol, name, category)
         else:
-            for p in os.listdir('creds'):
-                self._loop_through_dir(os.path.join('creds', p), p, name, category)
+            for p in os.listdir(os.path.join(root, 'creds')):
+                self._loop_through_dir(os.path.join(root, 'creds', p), p, name, category)
 
         print('Loaded %i default credential profiles' % len(self.creds))
         print('Loaded %i default credentials\n' % self.total_creds)

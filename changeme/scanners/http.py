@@ -23,16 +23,40 @@ class HTTP(Scanner):
         self.target = target
         self.useragent = {'User-Agent': config.useragent if config.useragent else self._get_useragent()}
         self.urls = data['auth']['url']
-        self.headers = data['auth'].get('headers', None)
-        self.isb64 = data['auth'].get('base64', None)
         self.success = data['auth']['success']
-        self.param = self._get_parameter_dict(data['auth'])
-        self.config_request = data['auth'].get('post', data['auth'].get('get', data['auth'].get('raw_post', None)))
-        self.cookie = data['auth'].get('sessionid', False)
-        self.csrf_name = data['auth'].get('csrf', False)
-        self.sessionid_name = data['auth'].get('sessionid', False)
-        self.password_found = list()
 
+        self.headers = None
+        if 'headers' in data['auth']:
+            self.headers = data['auth']['headers']
+
+        self.isb64 = None
+        if 'base64' in data['auth']:
+            self.isb64 = data['auth']['base64']
+
+        self.config_request = None
+        if 'post' in data['auth']:
+            config_request = data['auth']['post']
+        elif 'get' in data['auth']:
+            config_request = data['auth']['get']
+        elif 'raw_post' in data['auth']:
+            config_request = data['auth']['raw_post']
+
+        self.cookie = False
+        if 'sessionid' in data['auth']:
+            self.cookie = data['auth']['sessionid']
+
+        self.csrf_name = False
+        if 'csrf' in data['auth']:
+            self.csrf_name = data['auth']['csrf']
+
+        self.sessionid_name = False
+        if 'sessionid' in data['auth']:
+            self.sessionid_name = data['auth']['sessionid']
+
+        self.param = self._get_parameter_dict(data['auth'])
+        
+        self.password_found = list()
+        
         if config.ssl:
             self.ssl = 'https'
         else:
@@ -43,24 +67,28 @@ class HTTP(Scanner):
     def scan(self):
 
         self.logger.debug("[%s][scan]" % self._class_name())
-        for u in self.urls:
-            url = '%s://%s:%s%s' % (self.ssl, self.target, str(self.port), u)
-            s = requests.Session()
 
-            # Fingerprint target before scanning for a default password
-            try:
-                headers = self.useragent
-                if self.fingerprint.headers:
-                    headers.update(fp.headers)
-                    self.logger.debug("merged headers: %s" % headers)
-                res = s.get(url, timeout=self.config.timeout, verify=False, proxies=self.config.proxy, cookies=self.fingerprint.cookies, headers=headers)
-                self.logger.debug('[do_scan] %s - %i' % (url, res.status_code))
-            except Exception as e:
-                self.logger.debug('[do_scan] Failed to connect to %s' % (url,))
-                self.logger.debug(e)
-                continue
+        headers = self.useragent
+        if self.fingerprint.headers:
+            headers.update(fp.headers)
+            self.logger.debug("merged headers: %s" % headers)
+
+        # if fingerprint matches with the target, realize scan
+        if self.fingerprint.http_fingerprint(headers, self.ssl, self.target, str(self.port)):
             
-            if self.fingerprint.match(res):
+            self.logger.debug('[do_scan] Fingerprint matches successfully')
+
+            for u in self.urls:
+                url = '%s://%s:%s%s' % (self.ssl, self.target, str(self.port), u)
+                s = requests.Session()
+
+                try:
+                    res = s.get(url, timeout=self.config.timeout, verify=False, proxies=self.config.proxy, cookies=self.fingerprint.cookies, headers=headers)
+                except Exception as e:
+                    self.logger.debug('[do_scan] Failed to connect to %s' % url)
+                    self.logger.debug(e)
+                    continue
+
                 self.logger.debug('[do_scan] %s - %i' % (url, res.status_code))
        
                 # Only scan if a sessionid is required and we can get it
@@ -105,7 +133,12 @@ class HTTP(Scanner):
 
     def _get_parameter_dict(self, auth):
         params = dict()
-        data = auth.get('post', auth.get('get', ''))
+        data = ''
+        if 'post' in auth:
+            data = auth['post']
+        elif 'get' in auth:
+            data = auth['get']
+        
         for k in data:
             if k not in ('username', 'password', 'url'):
                 params[k] = data[k]
@@ -293,7 +326,7 @@ class HTTP(Scanner):
                         {
                             'name': self.name, 
                             'username': cred['username'], 
-                            'pasword': cred['password'], 
+                            'password': cred['password'], 
                             'url': req
                         }
                     )
@@ -306,9 +339,9 @@ class HTTP(Scanner):
             username = base64.b64decode(username)
             password = base64.b64decode(password)
 
-        if self.success.get('status') == res.status_code:
-            if self.success.get('body'):
-                for string in self.success.get('body'):
+        if self.success['status'] == res.status_code:
+            if 'body' in self.success:
+                for string in self.success['body']:
                     if re.search(string, res.text, re.IGNORECASE):
                         match = True
                         break

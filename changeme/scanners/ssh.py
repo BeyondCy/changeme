@@ -20,7 +20,7 @@ class SSH(Scanner):
                         {
                             'name': self.name, 
                             'username': cred['username'], 
-                            'pasword': cred['password'], 
+                            'password': cred['password'], 
                             'url': '%s:%s' % (self.target, str(self.port))
                         }
                     )

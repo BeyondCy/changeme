@@ -26,7 +26,7 @@ class MSSQL(Scanner):
                         {
                             'name': self.name, 
                             'username': cred['username'], 
-                            'pasword': cred['password'], 
+                            'password': cred['password'], 
                             'url': '{DOMAIN: %s} %s:%s' % (domain, self.target, str(self.port))
                         }
                     )

@@ -1,25 +1,37 @@
 import re
+import requests
 
 class Fingerprint:
 
     def __init__(self, name, config, fp=dict()):
         self.name = name
         self.config = config
-        self.urls = set(fp.get('url'))
-        self.http_status = fp.get('status')
-        self.body_text = fp.get('body')
-        self.basic_auth_realm = fp.get('basic_auth_realm', None)
-        self.cookies = None
-        cookies = fp.get('cookie')
-        if cookies:
-            self.cookies = cookies[0]
-        self.headers = None
-        headers = fp.get('headers', None)
-        if headers:
-            self.headers = headers[0]
-            self.config.logger.debug("self.headers: %s" % self.headers)
+        self.urls = set(fp['url'])
 
-        self.server_header = fp.get('server_header', None)
+        self.http_status = None
+        if 'status' in fp:
+            self.http_status = fp['status']
+
+        self.body_text = None
+        if 'body' in fp:
+            self.body_text = fp['body']
+
+        self.basic_auth_realm = None
+        if 'basic_auth_realm' in fp:
+            self.basic_auth_realm = fp['basic_auth_realm']
+
+        self.cookies = None
+        if 'cookie' in fp:
+            self.cookies = fp['cookie'][0]
+        
+        self.headers = None
+        if 'headers' in fp:
+            self.headers = fp['headers'][0]
+            self.config.logger.debug("headers: %s" % self.headers)
+
+        self.server_header = None
+        if 'server_header' in fp:
+            self.server_header = fp['server_header']
 
     def __hash__(self):
         return hash(self.name + ' '.join(self.urls))
@@ -42,11 +54,17 @@ class Fingerprint:
     def match(self, res):
         match = False
 
-        if (self.basic_auth_realm and self.basic_auth_realm in res.headers.get('WWW-Authenticate', list())):
+        h = list()
+        if 'WWW-Authenticate' in res.headers:
+            h = res.headers['WWW-Authenticate']
+
+        if (self.basic_auth_realm and self.basic_auth_realm in h):
             self.config.logger.debug('[Fingerprint.match] basic auth matched: %s' % self.body_text)
             match = True
 
-        server = res.headers.get('Server', None)
+        server = None
+        if 'Server' in res.headers:
+            server = res.headers['Server']
         if self.server_header and server and self.server_header in server:
             self.config.logger.debug('[Fingerprint.match] server header matched: %s' % self.body_text)
             match = True
@@ -59,3 +77,21 @@ class Fingerprint:
             match = False
 
         return match
+
+    def http_fingerprint(self, headers, ssl, target, port):
+
+        for url in self.urls:
+            s = requests.Session()
+            url = '%s://%s:%s%s' % (ssl, target, str(port), url)
+            try:
+                res = s.get(url, timeout=self.config.timeout, verify=False, proxies=self.config.proxy, cookies=self.cookies, headers=headers)
+                self.config.logger.debug('[do_scan] [http fingerprint] %s - %i' % (url, res.status_code))
+            except Exception as e:
+                self.config.logger.debug('[do_scan] [http fingerprint] Failed to connect to %s' % url)
+                self.config.logger.debug(e)
+                continue
+
+            if self.match(res):
+                return True
+
+        return False

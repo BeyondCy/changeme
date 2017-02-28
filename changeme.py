@@ -100,7 +100,7 @@ if __name__ == '__main__':
     targets_list = build_targets_list(target=args.target, file=args.targets)
     if targets_list:
         # Load credential from filesystem
-        creds = Credentials().load_creds(args.protocol, args.name, args.category)
+        creds = Credentials().load_creds(os.getcwd(), args.protocol, args.name, args.category)
 
         # Run main function
         pwd_found = core.run_changeme(
