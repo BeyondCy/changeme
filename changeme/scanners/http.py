@@ -69,8 +69,8 @@ class HTTP(Scanner):
         self.logger.debug("[%s][scan]" % self._class_name())
 
         headers = self.useragent
-        if self.fingerprint.headers:
-            headers.update(fp.headers)
+        if self.fingerprint.server_header:
+            headers.update(self.fingerprint.server_header)
             self.logger.debug("merged headers: %s" % headers)
 
         # if fingerprint matches with the target, realize scan
